@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>DON SMART FOCUS PRO</title>
+
+<style>
+body {
+    margin: 0;
+    font-family: Arial;
+    background: #0f172a;
+    color: white;
+}
+
+.container {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    height: 100vh;
+}
+
+.left {
+    padding: 40px;
+    text-align: center;
+}
+
+h1 { font-size: 48px; }
+
+#task {
+    font-size: 28px;
+    width: 80%;
+    padding: 15px;
+}
+
+.timer {
+    font-size: 90px;
+    margin: 30px;
+}
+
+button {
+    padding: 10px 20px;
+    font-size: 18px;
+    border: none;
+    border-radius: 8px;
+    margin: 5px;
+    cursor: pointer;
+}
+
+.start { background: #22c55e; }
+.reset { background: #ef4444; }
+.lock { background: #f59e0b; }
+.addtodo { background: #3b82f6; }
+
+.right {
+    background: #020617;
+    padding: 20px;
+    overflow-y: auto;
+}
+
+.section { margin-bottom: 30px; }
+
+input, textarea {
+    padding: 8px;
+    width: 100%;
+    margin-top: 5px;
+}
+
+ul {
+    list-style: none;
+    padding: 0;
+}
+
+li {
+    background: #1e293b;
+    padding: 8px;
+    margin: 5px 0;
+    cursor: pointer;
+}
+
+/* LOCK */
+#lockScreen {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    background: black;
+    width: 100%;
+    height: 100%;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+}
+
+.marquee-container {
+    width: 80%;
+    overflow: hidden;
+    margin-top: 30px;
+}
+
+.marquee-text {
+    white-space: nowrap;
+    font-size: 32px;
+    color: #22c55e;
+    animation: scroll 12s linear infinite;
+}
+
+@keyframes scroll {
+    0% { transform: translateX(100%); }
+    100% { transform: translateX(-100%); }
+}
+</style>
+</head>
+
+<body>
+
+<div id="lockScreen" onclick="unlock()">
+    <h1>🔥 FOCUS MODE</h1>
+    <div class="marquee-container">
+        <div id="lockTask" class="marquee-text"></div>
+    </div>
+</div>
+
+<div class="container">
+
+<div class="left">
+    <h1>🔥 FOCUS</h1>
+
+    <input id="task" placeholder="ตอนนี้กำลังทำอะไร..." oninput="loadNotesByTask()" />
+
+    <div class="timer" id="timer">50:00</div>
+
+    <button class="start" onclick="startTimer()">Start</button>
+    <button class="reset" onclick="resetTimer()">Reset</button>
+    <button class="lock" onclick="lock()">LOCK</button>
+    <button class="addtodo" onclick="addCurrentTask()">➕ To-Do</button>
+</div>
+
+<div class="right">
+
+<div class="section">
+    <h3>📋 To-Do</h3>
+    <input id="todoInput">
+    <button onclick="addTodo()">+</button>
+    <ul id="todoList"></ul>
+</div>
+
+<div class="section">
+    <h3>📌 Parking</h3>
+    <input id="parkInput">
+    <button onclick="addPark()">+</button>
+    <ul id="parkList"></ul>
+</div>
+
+<div class="section">
+    <h3>🧾 Notes (ตาม Task)</h3>
+    <textarea id="noteInput" placeholder="จดระหว่างทำงาน..."></textarea>
+    <button onclick="saveNote()">💾 Save</button>
+    <ul id="noteList"></ul>
+</div>
+
+</div>
+
+</div>
+
+<script>
+// TIMER
+let time = 3000, interval;
+
+function startTimer(){
+    clearInterval(interval);
+    interval = setInterval(()=>{
+        if(time<=0){clearInterval(interval); alert("พักได้"); return;}
+        time--; update();
+    },1000);
+}
+
+function resetTimer(){ clearInterval(interval); time=3000; update(); }
+
+function update(){
+    let m=Math.floor(time/60), s=time%60;
+    timer.innerText=`${m}:${s<10?'0':''}${s}`;
+}
+
+// LOCK
+function lock(){
+    let t = task.value || "FOCUS";
+    let el = document.getElementById("lockTask");
+    el.style.animation="none"; el.offsetHeight; el.style.animation=null;
+    el.innerText=("👉 "+t+" 👈 🔥 ").repeat(5);
+    lockScreen.style.display="flex";
+}
+function unlock(){ lockScreen.style.display="none"; }
+
+// TODO
+function addTodo(){
+    if(!todoInput.value) return;
+    createItem(todoList, todoInput.value);
+    todoInput.value=""; save();
+}
+function addCurrentTask(){
+    if(!task.value) return;
+    createItem(todoList, task.value);
+    save();
+}
+
+// PARK
+function addPark(){
+    if(!parkInput.value) return;
+    createItem(parkList, parkInput.value);
+    parkInput.value=""; save();
+}
+
+// CREATE ITEM
+function createItem(list, text){
+    let li=document.createElement("li");
+    li.innerText=text;
+    li.onclick=()=>{li.remove(); save();}
+    list.appendChild(li);
+}
+
+// NOTES (แยกตาม Task)
+function getKey(){
+    return "notes_"+(task.value || "general");
+}
+
+function saveNote(){
+    if(!noteInput.value) return;
+
+    let data = JSON.parse(localStorage.getItem(getKey()) || "[]");
+
+    data.push({
+        text: noteInput.value,
+        time: new Date().toLocaleString()
+    });
+
+    localStorage.setItem(getKey(), JSON.stringify(data));
+    noteInput.value="";
+    loadNotesByTask();
+}
+
+function loadNotesByTask(){
+    noteList.innerHTML="";
+    let data = JSON.parse(localStorage.getItem(getKey()) || "[]");
+
+    data.forEach(n=>{
+        let li=document.createElement("li");
+        li.innerText=`(${n.time}) ${n.text}`;
+        li.onclick=()=>{li.remove(); saveNotes();}
+        noteList.appendChild(li);
+    });
+}
+
+function saveNotes(){
+    let items=[];
+    noteList.querySelectorAll("li").forEach(li=>{
+        items.push({text:li.innerText, time:""});
+    });
+    localStorage.setItem(getKey(), JSON.stringify(items));
+}
+
+// SAVE
+function save(){
+    localStorage.setItem("todo", todoList.innerHTML);
+    localStorage.setItem("park", parkList.innerHTML);
+}
+
+// LOAD
+window.onload=()=>{
+    todoList.innerHTML=localStorage.getItem("todo")||"";
+    parkList.innerHTML=localStorage.getItem("park")||"";
+    loadNotesByTask();
+};
+// 🔥 รับค่าจาก AppSheet
+const params = new URLSearchParams(window.location.search);
+const taskParam = params.get("task");
+
+if (taskParam) {
+    document.getElementById("task").value = decodeURIComponent(taskParam);
+    loadNotesByTask();
+}
+update();
+</script>
+
+</body>
+</html>
